@@ -7,14 +7,31 @@ There is no `if (city === 'mumbai')` anywhere in the code.
 
 ```bash
 npm install
-npm test            # 16 tests: config validation + per-city behaviour
+npm test            # 20 tests: config validation + per-city behaviour
 npm run start:dev   # http://localhost:3000
 
 curl -H "X-City: dubai" localhost:3000/city
 curl -X POST -H "X-City: mumbai" -H "content-type: application/json" \
   -d '{"items":[{"sku":"tea","qty":2,"unitPrice":120}],"paymentMethod":"cash"}' \
   localhost:3000/orders
+
+# Express delivery (Delhi only; other cities get 403 / 400)
+curl -H "X-City: delhi" localhost:3000/orders/express-slots
+curl -X POST -H "X-City: delhi" -H "content-type: application/json" \
+  -d '{"items":[{"sku":"tea","qty":2,"unitPrice":120}],"paymentMethod":"online","express":true}' \
+  localhost:3000/orders
 ```
+
+## Features by city
+
+| Feature | Mumbai | Delhi | Dubai |
+|---|---|---|---|
+| `cash_on_delivery` | ✅ | ❌ | ✅ |
+| `scheduled_orders` | ✅ | ✅ | ❌ |
+| `live_tracking` | ❌ | ✅ | ✅ |
+| `express_delivery` | ❌ | ✅ | ❌ |
+
+The YAML files in `config/cities/` are the source of truth; keep this table in sync when you flip a flag.
 
 ## How it fits together
 
