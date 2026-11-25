@@ -1,0 +1,13 @@
+city: delhi
+displayName: Delhi
+timezone: Asia/Kolkata
+currency: INR
+languages: [en, hi]
+features:
+  cash_on_delivery: false
+  scheduled_orders: true
+  live_tracking: true
+payments:
+  provider: razorpay
+limits:
+  maxOrderValue: 30000

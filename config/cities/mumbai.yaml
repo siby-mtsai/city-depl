@@ -1,0 +1,13 @@
+city: mumbai
+displayName: Mumbai
+timezone: Asia/Kolkata
+currency: INR
+languages: [en, hi, mr]
+features:
+  cash_on_delivery: true
+  scheduled_orders: true
+  live_tracking: false
+payments:
+  provider: razorpay
+limits:
+  maxOrderValue: 50000

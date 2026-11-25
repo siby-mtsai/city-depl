@@ -1,0 +1,13 @@
+city: dubai
+displayName: Dubai
+timezone: Asia/Dubai
+currency: AED
+languages: [en, ar]
+features:
+  cash_on_delivery: true
+  scheduled_orders: false
+  live_tracking: true
+payments:
+  provider: stripe
+limits:
+  maxOrderValue: 5000
