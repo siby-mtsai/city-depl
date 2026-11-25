@@ -55,10 +55,18 @@ and set `CITY_CONFIG_DIR` if they live somewhere other than `./config/cities`.
 |---|---|
 | Pull request | not pushed (build + test only) |
 | PR with label `build:image` | `:pr-<number>` |
+| Push to `develop` | `:develop`, `:<commit sha>` |
 | Push to `main` | `:main`, `:<commit sha>` |
 | Tag `v1.2.3` | `:1.2.3` |
 
-Create the label once: `gh label create build:image --description "Push this PR's Docker image to GHCR"`.
+Branches: work on feature branches → PR into `develop` → PR `develop` into `main` for a release.
+
+### Labels
+
+- All repo labels are defined in `.github/labels.yml`. Pushing a change to it (on `main` or `develop`) creates or
+  updates them on GitHub; run **Actions → Labels → Run workflow** once after the first push.
+- PRs are auto-labelled by changed files (`area:city-config`, `area:payments`, `dependencies`, ...) via `.github/labeler.yml`.
+- Type labels (`feature`, `bug`, `chore`, `hotfix`) and `build:image` are added by hand.
 
 When you outgrow YAML (non-engineers toggling flags, gradual % rollouts), replace the body of
 `FeatureFlagService.isEnabled()` with Unleash, Flagsmith, LaunchDarkly or OpenFeature. Callers don't change.

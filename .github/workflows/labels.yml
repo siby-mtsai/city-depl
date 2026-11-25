@@ -1,0 +1,43 @@
+# Keeps GitHub labels in sync with .github/labels.yml, and auto-labels PRs by changed files.
+name: Labels
+
+on:
+  push:
+    branches: [main, develop]
+    paths: [.github/labels.yml]
+  workflow_dispatch:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  sync:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create / update labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          count=$(yq 'length' .github/labels.yml)
+          for i in $(seq 0 $((count - 1))); do
+            name=$(yq -r ".[$i].name" .github/labels.yml)
+            color=$(yq -r ".[$i].color" .github/labels.yml)
+            desc=$(yq -r ".[$i].description // \"\"" .github/labels.yml)
+            gh label create "$name" --color "$color" --description "$desc" --force --repo "$GITHUB_REPOSITORY"
+            echo "synced: $name"
+          done
+
+  auto-label:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/labeler@v5
+        with:
+          sync-labels: true

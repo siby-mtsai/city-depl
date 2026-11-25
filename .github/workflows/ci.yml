@@ -2,7 +2,7 @@
 #
 #   Pull request            -> test + build + smoke test (image is NOT pushed)
 #   PR with label build:image -> also pushes ghcr.io/<owner>/<repo>:pr-<number>
-#   Push to main            -> pushes :main and :<commit sha>
+#   Push to main / develop  -> pushes :main or :develop, plus :<commit sha>
 #   Tag v1.2.3              -> pushes :1.2.3
 name: CI
 
@@ -10,7 +10,7 @@ on:
   pull_request:
     types: [opened, reopened, synchronize, labeled]
   push:
-    branches: [main]
+    branches: [main, develop]
     tags: ['v*']
 
 concurrency:

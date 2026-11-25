@@ -1,0 +1,22 @@
+# Auto-labels PRs by the files they change (actions/labeler v5 format).
+area:city-config:
+  - changed-files:
+      - any-glob-to-any-file: config/cities/**
+area:features:
+  - changed-files:
+      - any-glob-to-any-file: src/features/**
+area:payments:
+  - changed-files:
+      - any-glob-to-any-file: src/payments/**
+area:orders:
+  - changed-files:
+      - any-glob-to-any-file: src/orders/**
+area:ci:
+  - changed-files:
+      - any-glob-to-any-file: [.github/**, Dockerfile, .dockerignore]
+area:tests:
+  - changed-files:
+      - all-globs-to-all-files: test/**
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file: [package.json, package-lock.json]

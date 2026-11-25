@@ -1,0 +1,45 @@
+# Source of truth for the repo's GitHub labels.
+# Edit this file and push to main/develop; .github/workflows/labels.yml creates/updates them.
+# (Labels deleted from this file are NOT removed from GitHub; delete those by hand.)
+
+# --- CI ---
+- name: build:image
+  color: "1D76DB"
+  description: Push this PR's Docker image to GHCR as :pr-<number>
+
+# --- Type (set by hand) ---
+- name: feature
+  color: "0E8A16"
+  description: New feature
+- name: bug
+  color: "D73A4A"
+  description: Something isn't working
+- name: chore
+  color: "C5DEF5"
+  description: Maintenance, refactors, dependencies
+- name: hotfix
+  color: "B60205"
+  description: Urgent fix going straight to main
+
+# --- Area (set automatically from changed files, see .github/labeler.yml) ---
+- name: area:city-config
+  color: "FBCA04"
+  description: Changes a city's YAML config
+- name: area:features
+  color: "FEF2C0"
+  description: Feature flags and guards
+- name: area:payments
+  color: "5319E7"
+  description: Payment providers
+- name: area:orders
+  color: "BFD4F2"
+  description: Orders API
+- name: area:ci
+  color: "000000"
+  description: CI workflows, Dockerfile
+- name: area:tests
+  color: "D4C5F9"
+  description: Tests only
+- name: dependencies
+  color: "0366D6"
+  description: package.json / lockfile changes
