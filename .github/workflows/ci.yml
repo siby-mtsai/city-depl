@@ -81,6 +81,8 @@ jobs:
               git diff --name-only HEAD^ HEAD > "$changed" || : > "$changed"
               ;;
           esac
+          # $GITHUB_OUTPUT values must be on one line; toJSON() pretty-prints across several.
+          labels=$(jq -c . <<<"$labels")
           echo "labels: $labels"
           echo "labels=$labels" >> "$GITHUB_OUTPUT"
           echo "changed=$changed" >> "$GITHUB_OUTPUT"
