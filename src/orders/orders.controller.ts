@@ -13,6 +13,13 @@ export class OrdersController {
     return this.orders.create(dto);
   }
 
+  /** Express delivery slots for the next few hours. Only in cities with express_delivery on. */
+  @Get('express-slots')
+  @RequireFeature('express_delivery')
+  expressSlots() {
+    return this.orders.expressSlots();
+  }
+
   /** Whole route is switched off in cities without live tracking. */
   @Get(':id/tracking')
   @RequireFeature('live_tracking')

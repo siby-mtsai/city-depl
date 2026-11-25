@@ -7,6 +7,7 @@ features:
   cash_on_delivery: true
   scheduled_orders: false
   live_tracking: true
+  express_delivery: false
 payments:
   provider: stripe
 limits:

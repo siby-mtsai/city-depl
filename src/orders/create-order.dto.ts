@@ -12,6 +12,8 @@ export const CreateOrderSchema = z.strictObject({
     .min(1),
   paymentMethod: z.enum(['online', 'cash']),
   scheduledFor: z.iso.datetime().optional(),
+  /** Deliver within 30 minutes. Only in cities with express_delivery on. */
+  express: z.boolean().optional(),
 });
 
 export type CreateOrderDto = z.infer<typeof CreateOrderSchema>;

@@ -9,6 +9,7 @@ export const FeaturesSchema = z.strictObject({
   cash_on_delivery: z.boolean(),
   scheduled_orders: z.boolean(),
   live_tracking: z.boolean(),
+  express_delivery: z.boolean(),
 });
 export type Feature = keyof z.infer<typeof FeaturesSchema>;
 export const ALL_FEATURES = Object.keys(FeaturesSchema.shape) as Feature[];

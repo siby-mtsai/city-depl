@@ -76,6 +76,35 @@ describe('same code, different cities (e2e)', () => {
     await get('mumbai').expect(403);
   });
 
+  it('express delivery slots are Delhi only', async () => {
+    const get = (city: string) =>
+      request(app.getHttpServer()).get('/orders/express-slots').set('X-City', city);
+    const res = await get('delhi').expect(200);
+    expect(res.body.city).toBe('delhi');
+    expect(res.body.slots).toHaveLength(3);
+    await get('mumbai').expect(403);
+    await get('dubai').expect(403);
+  });
+
+  it('express orders are accepted in Delhi and rejected elsewhere', async () => {
+    const body = { items: [item], paymentMethod: 'online', express: true };
+    const res = await order('delhi', body).expect(201);
+    expect(res.body.express).toBe(true);
+    expect(res.body.etaMinutes).toBe(30);
+    await order('mumbai', body).expect(400);
+    await order('dubai', body).expect(400);
+  });
+
+  it('an order cannot be both express and scheduled', async () => {
+    await order('delhi', { items: [item], paymentMethod: 'online', express: true, scheduledFor: '2026-12-01T10:00:00Z' }).expect(400);
+  });
+
+  it('only Delhi advertises express delivery to the frontend', async () => {
+    const city = (c: string) => request(app.getHttpServer()).get('/city').set('X-City', c);
+    expect((await city('delhi')).body.features).toContain('express_delivery');
+    expect((await city('dubai')).body.features).not.toContain('express_delivery');
+  });
+
   it('global kill switch turns a feature off everywhere', async () => {
     process.env.FEATURE_LIVE_TRACKING = 'off';
     try {
