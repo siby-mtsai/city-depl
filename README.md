@@ -47,26 +47,35 @@ curl -X POST -H "X-City: mumbai" -H "content-type: application/json" \
 One Docker image for all cities. Mount the city configs (Kubernetes ConfigMap, or bake them into the image)
 and set `CITY_CONFIG_DIR` if they live somewhere other than `./config/cities`.
 
-### CI/CD (image build only, no deployment yet)
+### CI/CD: city labels build city images
 
-`.github/workflows/ci.yml` runs the tests, builds the image, starts it and smoke-tests `/health` and `/city`.
+Add a city label when you raise a PR. CI runs the tests, then builds one image per labelled city that
+contains **only that city's config**, and smoke-tests that it serves that city and rejects the others.
 
-| When | Image pushed to `ghcr.io/<owner>/<repo>` |
+| Label | Builds |
 |---|---|
-| Pull request | not pushed (build + test only) |
-| PR with label `build:image` | `:pr-<number>` |
-| Push to `develop` | `:develop`, `:<commit sha>` |
-| Push to `main` | `:main`, `:<commit sha>` |
-| Tag `v1.2.3` | `:1.2.3` |
+| `city:mumbai`, `city:delhi`, `city:dubai` | that city (add several for several) |
+| `city:all` | every city |
 
-Branches: work on feature branches → PR into `develop` → PR `develop` into `main` for a release.
+- A PR with no city label fails CI. Editing `config/cities/x.yaml` adds `x` automatically.
+- Images go to `ghcr.io/<owner>/<repo>`:
+
+| Event | Tags |
+|---|---|
+| PR | `<city>-pr-<number>` |
+| Merge to `develop` | `<city>-develop`, `<city>-<sha>` (cities from the merged PR's labels) |
+| Merge to `main` | `<city>-main`, `<city>-<sha>` |
+| Tag `v1.2.3` | `<city>-1.2.3`, `<city>-latest` for every city |
+
+- Build one locally: `docker build --build-arg CITY=dubai -t city-app:dubai .`
+
+Branches: feature branch → PR into `develop` → PR `develop` into `main` for a release.
 
 ### Labels
 
-- All repo labels are defined in `.github/labels.yml`. Pushing a change to it (on `main` or `develop`) creates or
-  updates them on GitHub; run **Actions → Labels → Run workflow** once after the first push.
-- PRs are auto-labelled by changed files (`area:city-config`, `area:payments`, `dependencies`, ...) via `.github/labeler.yml`.
-- Type labels (`feature`, `bug`, `chore`, `hotfix`) and `build:image` are added by hand.
+- Labels live in `.github/labels.yml`; `city:<name>` labels are generated from `config/cities/`. Adding a city
+  and merging it creates its label. Run **Actions → Labels → Run workflow** once after the first push.
+- PRs are also auto-labelled by area (`area:payments`, `dependencies`, ...) via `.github/labeler.yml`.
 
 When you outgrow YAML (non-engineers toggling flags, gradual % rollouts), replace the body of
 `FeatureFlagService.isEnabled()` with Unleash, Flagsmith, LaunchDarkly or OpenFeature. Callers don't change.

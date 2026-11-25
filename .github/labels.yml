@@ -1,11 +1,13 @@
 # Source of truth for the repo's GitHub labels.
-# Edit this file and push to main/develop; .github/workflows/labels.yml creates/updates them.
+# Edit this file (or add a city) and push to main/develop; .github/workflows/labels.yml creates/updates them.
 # (Labels deleted from this file are NOT removed from GitHub; delete those by hand.)
 
-# --- CI ---
-- name: build:image
-  color: "1D76DB"
-  description: Push this PR's Docker image to GHCR as :pr-<number>
+# --- Cities ---
+# city:<name> labels are generated from config/cities/*.yaml by workflows/labels.yml, so a new
+# city gets its label automatically. Only the catch-all lives here.
+- name: city:all
+  color: "B60205"
+  description: Build an image for every city
 
 # --- Type (set by hand) ---
 - name: feature

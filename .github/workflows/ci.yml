@@ -1,14 +1,18 @@
-# Test, build the Docker image, smoke-test the container, and push it to GHCR.
+# Raise a PR with a city label and CI builds that city's image with only that city's config.
 #
-#   Pull request            -> test + build + smoke test (image is NOT pushed)
-#   PR with label build:image -> also pushes ghcr.io/<owner>/<repo>:pr-<number>
-#   Push to main / develop  -> pushes :main or :develop, plus :<commit sha>
-#   Tag v1.2.3              -> pushes :1.2.3
+#   city:mumbai / city:delhi / city:dubai   build that city      city:all   build every city
+#   Editing config/cities/<city>.yaml adds that city automatically.
+#
+#   Event                 Image pushed to ghcr.io/<owner>/<repo>
+#   PR with city label    :<city>-pr-<number>
+#   Push to develop       :<city>-develop, :<city>-<sha>      (cities from the merged PR's labels)
+#   Push to main          :<city>-main,    :<city>-<sha>      (cities from the merged PR's labels)
+#   Tag v1.2.3            :<city>-1.2.3 for every city
 name: CI
 
 on:
   pull_request:
-    types: [opened, reopened, synchronize, labeled]
+    types: [opened, reopened, synchronize, labeled, unlabeled]
   push:
     branches: [main, develop]
     tags: ['v*']
@@ -20,11 +24,14 @@ concurrency:
 permissions:
   contents: read
   packages: write
+  pull-requests: read
 
 jobs:
   test:
-    # Adding an unrelated label shouldn't rerun everything.
-    if: github.event.action != 'labeled' || github.event.label.name == 'build:image'
+    # Adding/removing a non-city label shouldn't rerun the tests.
+    if: >-
+      (github.event.action != 'labeled' && github.event.action != 'unlabeled') ||
+      startsWith(github.event.label.name, 'city:')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,11 +45,67 @@ jobs:
         run: npm run validate:cities
       - run: npm test
 
-  image:
+  cities:
     needs: test
     runs-on: ubuntu-latest
+    outputs:
+      cities: ${{ steps.resolve.outputs.cities }}
+      has_cities: ${{ steps.resolve.outputs.has_cities }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Labels and changed files
+        id: input
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          changed="$RUNNER_TEMP/changed.txt"
+          case "$GITHUB_EVENT_NAME:$GITHUB_REF" in
+            pull_request:*)
+              labels="$PR_LABELS"
+              gh pr diff "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --name-only > "$changed"
+              ;;
+            push:refs/tags/*)
+              labels='["city:all"]'
+              : > "$changed"
+              ;;
+            *)
+              # Push to develop/main: use the labels of the PR that was merged.
+              labels=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" --jq '[.[0].labels[]?.name | select(startswith("city:"))]')
+              git diff --name-only HEAD^ HEAD > "$changed" || : > "$changed"
+              ;;
+          esac
+          echo "labels: $labels"
+          echo "labels=$labels" >> "$GITHUB_OUTPUT"
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+      - name: Resolve cities
+        id: resolve
+        env:
+          LABELS: ${{ steps.input.outputs.labels }}
+        run: |
+          args=(--labels "$LABELS" --changed-files "${{ steps.input.outputs.changed }}")
+          # Every PR must say which city it is for.
+          [[ "$GITHUB_EVENT_NAME" == pull_request ]] && args+=(--require)
+          node .github/scripts/city-targets.mjs "${args[@]}"
+
+  image:
+    needs: cities
+    if: needs.cities.outputs.has_cities == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        city: ${{ fromJSON(needs.cities.outputs.cities) }}
+    name: image (${{ matrix.city }})
     env:
-      PUSH: ${{ github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'build:image') }}
+      # Fork PRs can't push to this repo's registry.
+      PUSH: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }}
     steps:
       - uses: actions/checkout@v4
 
@@ -51,35 +114,43 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
+          flavor: |
+            prefix=${{ matrix.city }}-,onlatest=true
           tags: |
             type=ref,event=pr
             type=ref,event=branch
-            type=sha,format=long,prefix=
+            type=sha,format=long,prefix=${{ matrix.city }}-,enable=${{ github.event_name == 'push' }}
             type=semver,pattern={{version}}
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: Build image
+      - name: Build ${{ matrix.city }} image
         uses: docker/build-push-action@v6
         with:
           context: .
           load: true
+          build-args: CITY=${{ matrix.city }}
           tags: city-app:test
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Smoke test container
+      - name: Smoke test (${{ matrix.city }} only)
+        env:
+          CITY: ${{ matrix.city }}
         run: |
           docker run -d --name app -p 3000:3000 city-app:test
           for i in $(seq 1 20); do curl -sf localhost:3000/health && break; sleep 1; done
           echo
-          curl -sf localhost:3000/health | grep -q '"status":"ok"'
-          curl -sf -H 'X-City: mumbai' localhost:3000/city | grep -q '"currency":"INR"'
-          curl -sf -H 'X-City: dubai'  localhost:3000/city | grep -q '"currency":"AED"'
-          code=$(curl -s -o /dev/null -w '%{http_code}' -H 'X-City: atlantis' localhost:3000/city)
-          [ "$code" = 404 ] || { echo "expected 404 for unknown city, got $code"; exit 1; }
-          echo "Smoke test passed"
+          health=$(curl -sf localhost:3000/health)
+          [ "$health" = "{\"status\":\"ok\",\"cities\":[\"$CITY\"]}" ] \
+            || { echo "expected only $CITY in /health, got $health"; exit 1; }
+          curl -sf -H "X-City: $CITY" localhost:3000/city | grep -q "\"city\":\"$CITY\""
+          for other in $(ls config/cities | sed 's/\.ya\?ml$//' | grep -vx "$CITY"); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -H "X-City: $other" localhost:3000/city)
+            [ "$code" = 404 ] || { echo "$CITY image should not serve $other (got $code)"; exit 1; }
+          done
+          echo "Smoke test passed: image serves $CITY and nothing else"
       - name: Container logs
         if: always()
         run: docker logs app || true
@@ -92,12 +163,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - name: Push image
+      - name: Push ${{ matrix.city }} image
         if: env.PUSH == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
+          build-args: CITY=${{ matrix.city }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
@@ -105,5 +177,5 @@ jobs:
       - name: Summary
         if: env.PUSH == 'true'
         run: |
-          echo "### Pushed image" >> "$GITHUB_STEP_SUMMARY"
+          echo "### ${{ matrix.city }} image" >> "$GITHUB_STEP_SUMMARY"
           echo '${{ steps.meta.outputs.tags }}' | sed 's/^/- `/; s/$/`/' >> "$GITHUB_STEP_SUMMARY"
